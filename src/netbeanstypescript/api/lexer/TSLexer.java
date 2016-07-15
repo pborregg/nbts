@@ -183,14 +183,15 @@ public class TSLexer implements Lexer<JsTokenId> {
             case ' ':
                 return factory.createToken(JsTokenId.WHITESPACE);
             case '!':
-                lastTokType = OPERATOR;
                 if (input.read() == '=') {
+                    lastTokType = OPERATOR;
                     if (input.read() == '=') {
                         return factory.createToken(JsTokenId.OPERATOR_NOT_EQUALS_EXACTLY);
                     }
                     input.backup(1);
                     return factory.createToken(JsTokenId.OPERATOR_NOT_EQUALS);
                 }
+                // lastTokType left as is (may be postfix non-null assertion)
                 input.backup(1);
                 return factory.createToken(JsTokenId.OPERATOR_NOT);
             case '"':

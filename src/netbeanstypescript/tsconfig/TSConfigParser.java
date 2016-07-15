@@ -38,6 +38,7 @@
 package netbeanstypescript.tsconfig;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -353,6 +354,14 @@ public class TSConfigParser extends Parser {
                 case "boolean": valid = value.value instanceof Boolean; break;
                 case "number": valid = value.value instanceof Number; break;
                 case "string": valid = value.value instanceof String; break;
+                case "list":
+                    if (value.elements != null) {
+                        for (ConfigNode element: value.elements) {
+                            checkType(res, element, optionInfo.element);
+                        }
+                        valid = true;
+                    }
+                    break;
             }
             if (! valid) {
                 res.addError("Compiler option '" + key + "' requires a value of type " + type + ".", value);
@@ -360,7 +369,16 @@ public class TSConfigParser extends Parser {
         } else if (type instanceof JSONObject) {
             if (! (value.value instanceof String &&
                    ((Map) type).containsKey(((String) value.value).toLowerCase()))) {
-                res.addError(optionInfo.errorMessage, value);
+                @SuppressWarnings("unchecked")
+                List<String> allAllowed = new ArrayList<>(((Map) type).keySet());
+                Collections.sort(allAllowed);
+                StringBuilder sb = new StringBuilder("Compiler option '").append(key).append("' must be one of: ");
+                boolean first = true;
+                for (String allowed: allAllowed) {
+                    sb.append(first ? "'" : ", '").append(allowed).append('\'');
+                    first = false;
+                }
+                res.addError(sb.append('.').toString(), value);
             }
         }
     }

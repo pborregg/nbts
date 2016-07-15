@@ -31,6 +31,7 @@ namespace ts {
         scanJsxToken(): SyntaxKind;
         scanJSDocToken(): SyntaxKind;
         scan(): SyntaxKind;
+        getText(): string;
         // Sets the text for the scanner to scan.  An optional subrange starting point and length
         // can be provided to have the scanner only scan a portion of the text.
         setText(text: string, start?: number, length?: number): void;
@@ -91,6 +92,7 @@ namespace ts {
         "let": SyntaxKind.LetKeyword,
         "module": SyntaxKind.ModuleKeyword,
         "namespace": SyntaxKind.NamespaceKeyword,
+        "never": SyntaxKind.NeverKeyword,
         "new": SyntaxKind.NewKeyword,
         "null": SyntaxKind.NullKeyword,
         "number": SyntaxKind.NumberKeyword,
@@ -98,6 +100,7 @@ namespace ts {
         "private": SyntaxKind.PrivateKeyword,
         "protected": SyntaxKind.ProtectedKeyword,
         "public": SyntaxKind.PublicKeyword,
+        "readonly": SyntaxKind.ReadonlyKeyword,
         "require": SyntaxKind.RequireKeyword,
         "global": SyntaxKind.GlobalKeyword,
         "return": SyntaxKind.ReturnKeyword,
@@ -113,6 +116,7 @@ namespace ts {
         "try": SyntaxKind.TryKeyword,
         "type": SyntaxKind.TypeKeyword,
         "typeof": SyntaxKind.TypeOfKeyword,
+        "undefined": SyntaxKind.UndefinedKeyword,
         "var": SyntaxKind.VarKeyword,
         "void": SyntaxKind.VoidKeyword,
         "while": SyntaxKind.WhileKeyword,
@@ -362,6 +366,11 @@ namespace ts {
     const hasOwnProperty = Object.prototype.hasOwnProperty;
 
     export function isWhiteSpace(ch: number): boolean {
+        return isWhiteSpaceSingleLine(ch) || isLineBreak(ch);
+    }
+
+    /** Does not include line breaks. For that, see isWhiteSpaceLike. */
+    export function isWhiteSpaceSingleLine(ch: number): boolean {
         // Note: nextLine is in the Zs space, and should be considered to be a whitespace.
         // It is explicitly not a line-break as it isn't in the exact set specified by EcmaScript.
         return ch === CharacterCodes.space ||
@@ -431,7 +440,7 @@ namespace ts {
       }
 
       /* @internal */
-      export function skipTrivia(text: string, pos: number, stopAfterLineBreak?: boolean): number {
+      export function skipTrivia(text: string, pos: number, stopAfterLineBreak?: boolean, stopAtComments = false): number {
           // Using ! with a greater than test is a fast way of testing the following conditions:
           //  pos === undefined || pos === null || isNaN(pos) || pos < 0;
           if (!(pos >= 0)) {
@@ -459,6 +468,9 @@ namespace ts {
                       pos++;
                       continue;
                   case CharacterCodes.slash:
+                      if (stopAtComments) {
+                          break;
+                      }
                       if (text.charCodeAt(pos + 1) === CharacterCodes.slash) {
                           pos += 2;
                           while (pos < text.length) {
@@ -499,7 +511,7 @@ namespace ts {
                       break;
 
                   default:
-                      if (ch > CharacterCodes.maxAsciiCharacter && (isWhiteSpace(ch) || isLineBreak(ch))) {
+                      if (ch > CharacterCodes.maxAsciiCharacter && (isWhiteSpace(ch))) {
                           pos++;
                           continue;
                       }
@@ -510,7 +522,7 @@ namespace ts {
       }
 
       // All conflict markers consist of the same character repeated seven times.  If it is
-      // a <<<<<<< or >>>>>>> marker then it is also followd by a space.
+      // a <<<<<<< or >>>>>>> marker then it is also followed by a space.
     const mergeConflictMarkerLength = "<<<<<<<".length;
 
     function isConflictMarkerTrivia(text: string, pos: number) {
@@ -550,7 +562,7 @@ namespace ts {
         }
         else {
             Debug.assert(ch === CharacterCodes.equals);
-            // Consume everything from the start of the mid-conlict marker to the start of the next
+            // Consume everything from the start of the mid-conflict marker to the start of the next
             // end-conflict marker.
             while (pos < len) {
                 const ch = text.charCodeAt(pos);
@@ -652,7 +664,7 @@ namespace ts {
                     }
                     break;
                 default:
-                    if (ch > CharacterCodes.maxAsciiCharacter && (isWhiteSpace(ch) || isLineBreak(ch))) {
+                    if (ch > CharacterCodes.maxAsciiCharacter && (isWhiteSpace(ch))) {
                         if (result && result.length && isLineBreak(ch)) {
                             lastOrUndefined(result).hasTrailingNewLine = true;
                         }
@@ -757,6 +769,7 @@ namespace ts {
             scanJsxToken,
             scanJSDocToken,
             scan,
+            getText,
             setText,
             setScriptTarget,
             setLanguageVariant,
@@ -1196,7 +1209,7 @@ namespace ts {
                             continue;
                         }
                         else {
-                            while (pos < end && isWhiteSpace(text.charCodeAt(pos))) {
+                            while (pos < end && isWhiteSpaceSingleLine(text.charCodeAt(pos))) {
                                 pos++;
                             }
                             return token = SyntaxKind.WhitespaceTrivia;
@@ -1514,7 +1527,7 @@ namespace ts {
                             }
                             return token = getIdentifierToken();
                         }
-                        else if (isWhiteSpace(ch)) {
+                        else if (isWhiteSpaceSingleLine(ch)) {
                             pos++;
                             continue;
                         }
@@ -1683,7 +1696,7 @@ namespace ts {
             let ch = text.charCodeAt(pos);
             while (pos < end) {
                 ch = text.charCodeAt(pos);
-                if (isWhiteSpace(ch)) {
+                if (isWhiteSpaceSingleLine(ch)) {
                     pos++;
                 }
                 else {
@@ -1781,6 +1794,10 @@ namespace ts {
 
         function tryScan<T>(callback: () => T): T {
             return speculationHelper(callback, /*isLookahead*/ false);
+        }
+
+        function getText(): string {
+            return text;
         }
 
         function setText(newText: string, start: number, length: number) {
